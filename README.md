@@ -143,3 +143,6 @@ To parse a DSS file:
 
 **Standardization Note:**  
 This format is released under the **CC BY 4.0 (Creative Commons Attribution 4.0 International License)**. It is free for use, modification, and distribution in any software, specifically intended for the `Datastripes` ecosystem and the `ilovecsv.net` toolkit.
+
+
+<!-- Fix #1 -->
