@@ -1,73 +1,76 @@
-# Specification: Data Sheet Standard (DSS) v1.0
+# Data Sheet Standard (DSS) v1.0
 
-![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19659516.svg)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19659516.svg)](https://doi.org/10.5281/zenodo.19659516)
 
 **Status:** Proposal / Draft v1.0  
-**Author:** Vincenzo Manto @ datastripes.com / ilovecsv.net / ihatecsv.com  
-**Extension:** `.DSS`  
-**MIME Type:** `text/DSS`  
-**Encoding:** `UTF-8`
+**Author:** Vincenzo Manto ([datastripes.com](https://datastripes.com))  
+**License:** [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+
+DSS is a text-based data exchange format designed to represent **multi-sheet, sparse spreadsheet data** in a way that is natively **human-readable** and **Git-friendly**.
 
 ---
 
-## 1. Abstract
-The Data Sheet Standard (DSS) is a text-based, human-readable data format designed to represent multi-sheet spreadsheet data. Unlike CSV, it supports multiple tabs and sparse data placement via an anchor-based system. Unlike XLSX, it is non-binary, non-XML, and fully compatible with version control systems (Git-friendly).
+## 1. Rationale
+The tech world is stuck between two suboptimal choices for tabular data:
+*   **CSV:** Simple and Git-friendly, but lacks support for multiple sheets and forces "comma-padding" for sparse data.
+*   **XLSX/ODS:** Feature-rich, but binary/compressed (opaque to Git) and impossible to read without specialized software.
 
-## 2. Design Principles
-1. **Human Readable:** A user should be able to understand the data by opening the file in a simple text editor.
-2. **Sparse Data Support:** Only populated cells are stored. No "padding" with empty commas is required to reach a specific coordinate.
-3. **Multi-Sheet:** A single file can contain multiple named sheets.
-4. **Git-Friendly:** Changes to a single cell result in a predictable, single-line diff.
-5. **Simplicity:** Parsers should be implementable in under 100 lines of code.
+**DSS bridges this gap.** It treats spreadsheets as a collection of coordinate-based data blocks in a plain-text file.
+
+## 2. Core Principles
+1.  **Human First:** If you can't read it in `notepad.exe`, it's not DSS.
+2.  **Git-Native:** Changes to a single cell must result in a single-line diff.
+3.  **Sparse by Design:** Only populated cells occupy space. No padding required.
+4.  **Parsing Simplicity:** A compliant parser must be implementable in <100 lines of code.
 
 ---
 
-## 3. File Structure
-A DSS file consists of three optional/mandatory layers:
-1. **Global Metadata** (Optional)
-2. **Sheet Declarations** (Mandatory for multi-sheet)
-3. **Data Anchors** (Mandatory)
+## 3. Technical Specification
 
-### 3.1 Header (Global Metadata)
-The file begins with an optional metadata block encapsulated by triple dashes `---`.
-```DSS
+### 3.1 Metadata (Frontmatter)
+Every DSS file may begin with an optional YAML-compliant metadata block.
+```dss
 ---
-format: DSS 1.0
-created_by: Datastripes
-date: 2023-10-27
+project: Global Economy Simulation
+version: 1.0.0
+encoding: UTF-8
 ---
 ```
 
 ### 3.2 Sheet Declaration
-Sheets are defined by a name enclosed in square brackets.
+Sheets are defined using square brackets. A DSS file can contain an infinite number of sheets.
 *   **Syntax:** `[Sheet Name]`
-*   **Rules:** Sheet names must be unique within the file. Characters `[` and `]` are reserved.
+*   **Constraints:** Sheet names must be unique.
 
-### 3.3 Data Anchors (The Coordinate System)
-Anchors define where a block of data starts on the 2D grid using standard A1 notation.
-*   **Syntax:** `@ Coordinate` (e.g., `@ A1`, `@ M20`)
-*   **Behavior:** All subsequent lines of data are relative to this anchor until a new anchor or sheet is declared.
-
----
-
-## 4. Data Syntax
-Inside an anchored block, data follows a strict CSV-inspired structure (RFC 4180 compliant).
-
-### 4.1 Delimiters
-*   The default delimiter is the **comma** `,`.
-*   Rows are separated by standard line breaks (`LF` or `CRLF`).
-
-### 4.2 Data Types
-DSS is "type-aware" through notation:
-*   **String:** Wrapped in double quotes (e.g., `"Sales Report"`). Mandatory if the string contains commas or line breaks.
-*   **Numeric:** Unquoted digits (e.g., `123`, `45.67`).
-*   **Boolean:** `true` or `false` (case-insensitive).
-*   **Null/Empty:** Represented by an empty value between commas or a explicit `null`.
-*   **Formula:** (Optional) Prefixed with `=`, stored as a string (e.g., `"=SUM(B2:B10)"`).
+### 3.3 The Anchor System (`@` Notation)
+This is the core of the protocol. Instead of a stream of values, DSS uses **Coordinate Anchors** in A1 notation.
+*   **Syntax:** `@ A1`, `@ C10`, `@ AA500`
+*   **Behavior:** An anchor sets the "Active Cursor". All data rows following an anchor are placed relative to that coordinate.
+*   **Last-Man-Win:** If two data blocks overlap, the values defined last in the file overwrite previous ones.
 
 ---
 
-## 5. Formal Grammar (EBNF-like)
+## 4. Syntax Example
+
+```dss
+[Financials]
+@ A1
+"Period", "Revenue", "Margin"
+"Q1", 10500.50, 0.22
+"Q2", 12000.00, 0.25
+
+@ E1
+"Status", "Final"
+"Audited", true
+
+[Metadata_Private]
+@ A1
+"Internal_ID", 99823
+```
+
+---
+
+## 5. Formal Grammar (EBNF)
 ```text
 <file>        ::= [<metadata>] <sheet_list>
 <metadata>    ::= "---" <newline> { <key_value> <newline> } "---" <newline>
@@ -81,65 +84,38 @@ DSS is "type-aware" through notation:
 
 ---
 
-## 6. Implementation Example
-Below is an example of a `.DSS` file representing a complex, sparse spreadsheet.
+## 6. Comparison Matrix
 
-```DSS
----
-project: Financial Forecast
-version: 2.1
----
-
-[Quarterly Report]
-@ A1
-"Department", "Budget", "Actual"
-"Marketing", 50000, 48500
-"R&D", 120000, 131000
-
-@ G1
-"Status: Over Budget"
-"Risk Level: Low"
-
-@ A10
-"Notes:"
-"The R&D department exceeded budget due to hardware acquisition."
-
-[Settings]
-@ B2
-"Tax Rate", 0.22
-"Currency", "EUR"
-```
+| Feature | CSV | XLSX | **DSS** |
+| :--- | :---: | :---: | :---: |
+| **Multi-Sheet** | ❌ | ✅ | ✅ |
+| **Sparse Placement** | ❌ | ✅ | ✅ |
+| **Git/Diff Friendly** | ✅ | ❌ | ✅ |
+| **Plain Text** | ✅ | ❌ | ✅ |
+| **Internal Metadata**| ❌ | ✅ | ✅ |
 
 ---
 
-## 7. Parsing Logic (Reference for Developers)
-To parse a DSS file:
-1.  **Initialize** a dictionary of sheets.
-2.  **Iterate** through lines:
-    *   If line starts with `[`, create a new sheet object/key.
-    *   If line starts with `@`, parse the A1 coordinate into row/column indices (e.g., `B2` -> `row 1, col 1`). This is the **Active Cursor**.
-    *   If line contains data, split by comma (respecting quotes). Map each value to `Active Cursor + current_offset`. Increment `Active Cursor` row for the next line.
-3.  **Ignore** lines starting with `#` (comments).
+## 7. Implementation Guide for Developers
+To build a DSS-compliant parser, follow this logic:
+
+1.  **Sheet Map:** Initialize a Map/Dictionary to hold sheets.
+2.  **State Machine:**
+    *   **On `[`**: Create/Switch to the named sheet.
+    *   **On `@`**: Parse A1 coordinate (e.g., `B2` -> `row:1, col:1`). This is your **Base Offset**.
+    *   **On Data Row**: 
+        *   Split by comma (respecting quotes).
+        *   For each value at index `i`, assign it to `Sheet[BaseRow + CurrentLine][BaseCol + i]`.
+        *   Increment `CurrentLine` for the next row of data.
+3.  **Comments:** Lines starting with `#` must be ignored.
 
 ---
 
-## 8. Why DSS vs Others
-
-| Feature | CSV | XLSX (XML) | **DSS** |
-| :--- | :--- | :--- | :--- |
-| **Multi-Sheet** | No | Yes | **Yes** |
-| **Sparse Data** | No (requires `,` padding) | Yes | **Yes** |
-| **Git-Friendly** | Yes | No (Binary/Compressed) | **Yes** |
-| **Human Readable** | Yes | No | **Yes** |
-| **Parsing Overhead** | Extremely Low | High | **Low** |
+## 8. MIME & Integration
+*   **Extension:** `.dss`
+*   **MIME Type:** `text/dss`
+*   **Encoding:** Must be `UTF-8`.
 
 ---
 
-## 9. Future Extensions
-*   **Cell Styling:** Optional CSS-like block for formatting (e.g., `$ A1:B10 { font-weight: bold; }`).
-*   **Encryption:** Support for encrypted data blocks within specific sheets.
-
----
-
-**Standardization Note:**  
-This format is released under the **CC BY 4.0 (Creative Commons Attribution 4.0 International License)**. It is free for use, modification, and distribution in any software, specifically intended for the `Datastripes` ecosystem and the `ilovecsv.net` toolkit.
+*This standard is part of the Datastripes ecosystem. For tools, parsers, and plugins, visit [ilovecsv.net](https://ilovecsv.net).*
