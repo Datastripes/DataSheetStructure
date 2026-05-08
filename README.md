@@ -118,4 +118,4 @@ To build a DSS-compliant parser, follow this logic:
 
 ---
 
-*This standard is part of the Datastripes ecosystem. For tools, parsers, and plugins, visit [ilovecsv.net](https://ilovecsv.net).*
+*This standard is part of the Datastripes ecosystem. For tools, parsers, and plugins, visit [ilovecsv.net](https://howtocsv.com).*
